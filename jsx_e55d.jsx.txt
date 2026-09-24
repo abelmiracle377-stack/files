@@ -1,0 +1,171 @@
+import React, { useState, useEffect } from 'react';
+import './App.css'; // Assuming basic CSS exists
+
+function App() {
+  const [target, setTarget] = useState('');
+  const [scanResult, setScanResult] = useState([]);
+  const [vulnTips, setVulnTips] = useState([]);
+  const [exploitLog, setExploitLog] = useState('');
+  const [bruteForceLog, setBruteForceLog] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // 1. Port Scan
+  const handleScan = async () => {
+    if (!target) return;
+    setLoading(true);
+    setScanResult([]);
+    
+    try {
+      const res = await fetch('http://localhost:5000/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      });
+      const data = await res.json();
+      setScanResult(data.scan_results || []);
+    } catch (err) {
+      console.error(err);
+      alert("Error connecting to backend");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Vulnerability Analysis
+  const handleVulnCheck = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/vuln', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      });
+      const data = await res.json();
+      setVulnTips(data.vulnerability_tips || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Metasploit Exploit
+  const handleExploit = async () => {
+    if (scanResult.length === 0) return alert("Please scan for ports first.");
+    setLoading(true);
+    // Use the first open port found
+    const portData = scanResult[0];
+    
+    try {
+      const res = await fetch('http://localhost:5000/api/exploit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          target: target, 
+          port: portData.port, 
+          service: portData.service 
+        })
+      });
+      const data = await res.json();
+      setExploitLog(data.output);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Brute Force
+  const handleBrute = async () => {
+    if (scanResult.length === 0) return alert("Please scan for ports first.");
+    setLoading(true);
+    const portData = scanResult[0];
+
+    try {
+      const res = await fetch('http://localhost:5000/api/brute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          target: target, 
+          port: portData.port, 
+          service: portData.service 
+        })
+      });
+      const data = await res.json();
+      setBruteForceLog(data.attempts);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="container">
+      <h1>WormGPT AI Security Scanner</h1>
+      
+      <div className="input-group">
+        <input 
+          type="text" 
+          placeholder="Enter IP or Website (e.g. 192.168.1.1)" 
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+        />
+        <button onClick={handleScan} disabled={loading}>Scan Ports</button>
+      </div>
+
+      {loading && <div className="status">Processing...</div>}
+
+      <div className="grid">
+        {/* Scan Results */}
+        <div className="card">
+          <h3>Open Ports</h3>
+          <ul>
+            {scanResult.map((p, idx) => (
+              <li key={idx}>
+                <strong>{p.port}</strong> / {p.service} ({p.state})
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Vulnerability Tips */}
+        <div className="card">
+          <h3>SQL Injection Tips</h3>
+          <ul>
+            {vulnTips.map((tip, idx) => (
+              <li key={idx}>{tip}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="actions">
+        <button onClick={handleExploit} className="btn-exploit">
+          Run Metasploit Exploit
+        </button>
+        <button onClick={handleBrute} className="btn-brute">
+          Brute Force Attack
+        </button>
+      </div>
+
+      {/* Results Panels */}
+      <div className="results">
+        <div className="log-panel">
+          <h4>Metasploit Output:</h4>
+          <pre>{exploitLog || 'Waiting for exploit...'}</pre>
+        </div>
+        <div className="log-panel">
+          <h4>Brute Force Attempts:</h4>
+          <ul>
+            {bruteForceLog.length > 0 ? bruteForceLog.map((log, idx) => (
+              <li key={idx}>{log}</li>
+            )) : 'Waiting for brute force...'}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
