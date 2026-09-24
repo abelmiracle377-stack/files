@@ -102,7 +102,7 @@ function App() {
 
   return (
     <div className="container">
-      <h1>WormGPT AI Security Scanner</h1>
+      <h1>AI Security Scanner</h1>
       
       <div className="input-group">
         <input 
